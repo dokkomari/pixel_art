@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Art Studio — Craft Edition</title>
+    <style>
+        :root {
+            --bg-app: #18181b;
+            --bg-panel: #222226;
+            --bg-card: #2b2b30;
+            --bg-input: #34343a;
+            --border: #3f3f46;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --accent: #f59e0b; /* 따뜻한 앰버 포인트 */
+            --accent-hover: #d97706;
+            --blue: #3b82f6;
+            --green: #10b981;
+            --purple: #8b5cf6;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-app);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* 스크롤바 다듬기 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 270px;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .panel-right { width: 300px; }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.04em;
+            margin: 0 0 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button, input[type="number"], select {
+            background: var(--bg-input);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 7px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+
+        button { cursor: pointer; font-weight: 500; }
+        button:hover { background: #3f3f46; border-color: #52525b; }
+        button:active { transform: translateY(1px); }
+
+        button.active {
+            background: var(--accent);
+            color: #18181b;
+            font-weight: 700;
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+        }
+
+        input[type="number"] { width: 64px; text-align: center; }
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+            margin: 2px 0;
+        }
+
+        /* 도구 그리드 */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .tool-grid button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 8px 6px;
+        }
+
+        /* 중앙 작업 영역 */
+        #workspace {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: #121214;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .workspace-badge {
+            position: absolute;
+            top: 12px;
+            left: 14px;
+            background: rgba(34, 34, 38, 0.85);
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--border);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: var(--text-muted);
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        #canvas-container {
+            position: relative;
+            background: repeating-conic-gradient(#d4d4d8 0% 25%, #ffffff 0% 50%) 50% / 16px 16px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+            transform-origin: center center;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0; left: 0;
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+
+        #selection-box {
+            position: absolute;
+            border: 1.5px dashed #fff;
+            outline: 1px solid #000;
+            background: rgba(245, 158, 11, 0.18);
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+        }
+
+        /* 슬라이더 & 라벨 */
+        .slider-group { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; }
+        .slider-header { display: flex; justify-content: space-between; color: var(--text-muted); }
+        .slider-header span.val { color: var(--text-main); font-weight: 600; font-variant-numeric: tabular-nums; }
+        
+        /* RGB 전용 컬러 슬라이더 */
+        .r-slider { accent-color: #ef4444 !important; }
+        .g-slider { accent-color: #22c55e !important; }
+        .b-slider { accent-color: #3b82f6 !important; }
+
+        /* 탭 UI */
+        .tabs {
+            display: flex;
+            background: var(--bg-app);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            gap: 4px;
+        }
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px;
+            font-size: 11.5px;
+            border-radius: 5px;
+        }
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: var(--text-main);
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .tab-content { display: none; flex-direction: column; gap: 10px; }
+        .tab-content.active { display: flex; }
+
+        /* 라디오 옵션 카드 */
+        .radio-group { display: flex; flex-direction: column; gap: 6px; }
+        .radio-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            background: var(--bg-input);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-size: 11.5px;
+        }
+        .radio-card:has(input:checked) {
+            border-color: var(--accent);
+            background: rgba(245, 158, 11, 0.08);
+        }
+        .radio-card input { margin-top: 2px; accent-color: var(--accent); }
+        .radio-desc { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.35; }
+
+        /* 팔레트 & 레이어 */
+        #palette { display: flex; flex-wrap: wrap; gap: 6px; }
+        .color-chip {
+            width: 24px; height: 24px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .color-chip:hover { transform: scale(1.15); border-color: #fff; }
+
+        .layer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-input);
+            padding: 7px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .layer-item.active {
+            border-color: var(--accent);
+            background: rgba(245, 158, 11, 0.12);
+            font-weight: 600;
+        }
+
+        .flex-row { display: flex; gap: 8px; align-items: center; }
+        .btn-full { width: 100%; }
+        .btn-reset { padding: 3px 7px; font-size: 10.5px; background: transparent; color: var(--text-muted); }
+        .btn-reset:hover { color: var(--text-main); }
+
+        /* 적용 버튼 컬러 */
+        .btn-apply-pen { background: #1e3a2f; border-color: #2e5a44; color: #6ee7b7; }
+        .btn-apply-pen:hover { background: #26493b; }
+        .btn-apply-pen.active { background: #10b981; color: #064e3b; border-color: #10b981; }
+
+        .btn-apply-rect { background: #3b2d1f; border-color: #5c452e; color: #fcd34d; }
+        .btn-apply-rect:hover { background: #4a3826; }
+        .btn-apply-rect.active { background: #f59e0b; color: #18181b; border-color: #f59e0b; }
+
+        .btn-apply-all { background: #312547; border-color: #4c396e; color: #c4b5fd; font-weight: 600; }
+        .btn-apply-all:hover { background: #3d2e59; }
+
+        /* 파일 업로드 커스텀 */
+        .file-label {
+            display: block;
+            text-align: center;
+            background: var(--bg-input);
+            border: 1px dashed var(--border);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .file-label:hover { border-color: var(--text-main); color: var(--text-main); }
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- 왼쪽 패널: 캔버스, 그리기 도구, 팔레트 -->
+    <div class="panel">
+        <div>
+            <div class="section-title">캔버스 & 화면 배율</div>
+            <div class="card">
+                <div class="flex-row" style="justify-content: space-between;">
+                    <div class="flex-row" style="gap: 4px;">
+                        <input type="number" id="canvasW" value="16" min="1" max="1000">
+                        <span style="color:var(--text-muted)">×</span>
+                        <input type="number" id="canvasH" value="16" min="1" max="1000">
+                    </div>
+                    <button id="btnResize">적용</button>
+                </div>
+                <div class="flex-row">
+                    <button id="btnZoomOut" style="flex:1">🔍 축소</button>
+                    <button id="btnZoomIn" style="flex:1">🔍 확대</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">
+                <span>그리기 도구</span>
+                <button id="btnUndo" class="btn-reset" title="단축키 Ctrl+Z">↩️ 실행 취소</button>
+            </div>
+            <div class="card">
+                <div class="flex-row" style="justify-content: space-between;">
+                    <span style="font-size: 12px; color: var(--text-muted);">브러시 크기 (px)</span>
+                    <input type="number" id="brushSize" value="1" min="1" max="100">
+                </div>
+                <div class="tool-grid">
+                    <button id="tool-pen" class="tool-btn active">✏️ 펜</button>
+                    <button id="tool-eraser" class="tool-btn">🧼 지우개</button>
+                    <button id="tool-picker" class="tool-btn">💉 스포이트</button>
+                    <button id="tool-circle" class="tool-btn">⭕ 원 그리기</button>
+                    <button id="tool-fill" class="tool-btn">🪣 영역 채우기</button>
+                    <button id="tool-global-fill" class="tool-btn">🪄 같은 색 변경</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">색상 & 최근 팔레트</div>
+            <div class="card">
+                <div class="flex-row">
+                    <input type="color" id="colorPicker" value="#f59e0b" style="width: 42px; height: 34px; padding: 0; border: none; background: transparent; cursor: pointer;">
+                    <div style="flex-grow: 1;">
+                        <div class="slider-header">
+                            <span>불투명도 (Alpha)</span>
+                            <span id="valOpacity" class="val">255</span>
+                        </div>
+                        <input type="range" id="opacityPicker" min="0" max="255" value="255">
+                    </div>
+                </div>
+                <div id="palette"></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">
+                <span>레이어</span>
+                <button id="btnAddLayer" class="btn-reset">+ 새 레이어</button>
+            </div>
+            <div class="card" style="gap: 6px;">
+                <div id="layerList" style="display:flex; flex-direction:column; gap:5px;"></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">프로젝트 파일</div>
+            <div class="flex-row">
+                <button id="btnExport" style="flex:1; background: var(--blue); border-color: var(--blue); font-weight: 600;">💾 PNG 저장</button>
+                <label for="btnImport" class="file-label" style="flex:1;">📂 PNG 열기</label>
+                <input type="file" id="btnImport" accept="image/png">
+            </div>
+        </div>
+    </div>
+
+    <!-- 중앙 패널: 픽셀 캔버스 작업대 -->
+    <div id="workspace">
+        <div class="workspace-badge" id="statusBadge">16 × 16 px · 배율 20x · 마우스 휠로 줌</div>
+        <div id="canvas-container">
+            <div id="selection-box"></div>
+        </div>
+    </div>
+
+    <!-- 오른쪽 패널: 색감 보정 & 색상 묶기 (팔레트 다이어트) -->
+    <div class="panel panel-right">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="tab-color">🎨 색감 · RGB 마스킹</button>
+            <button class="tab-btn" data-tab="tab-quantize">🧩 색상 묶기 (통합)</button>
+        </div>
+
+        <!-- 탭 1: 색감 & RGB 마스킹 -->
+        <div id="tab-color" class="tab-content active">
+            <div class="card">
+                <div class="section-title" style="margin:0;">연산 곡선 (마스크 강도)</div>
+                <div class="radio-group">
+                    <label class="radio-card">
+                        <input type="radio" name="adjMode" value="curve" checked>
+                        <div>
+                            <b>부드러운 곡선 (시그모이드 마스크)</b>
+                            <div class="radio-desc">0이나 255 끝에 닿을수록 천천히 변해 원본 음영과 질감을 보호합니다.</div>
+                        </div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="adjMode" value="linear">
+                        <div>
+                            <b>단순 합산 (선형)</b>
+                            <div class="radio-desc">설정한 수치만큼 정직하게 더하거나 뺍니다.</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- HSL 슬라이더 -->
+            <div class="card">
+                <div class="section-title" style="margin:0;">
+                    <span>HSL 색조 · 채도 · 명도</span>
+                    <button id="btnResetHSL" class="btn-reset">초기화</button>
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header"><span>색조 (Hue)</span><span id="valH" class="val">0도</span></div>
+                    <input type="range" id="adjH" min="-180" max="180" value="0">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header"><span>채도 (Saturation)</span><span id="valS" class="val">0%</span></div>
+                    <input type="range" id="adjS" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header"><span>명도 (Lightness)</span><span id="valL" class="val">0%</span></div>
+                    <input type="range" id="adjL" min="-100" max="100" value="0">
+                </div>
+            </div>
+
+            <!-- RGB 채널 마스킹 슬라이더 -->
+            <div class="card">
+                <div class="section-title" style="margin:0;">
+                    <span>RGB 채널 마스킹</span>
+                    <button id="btnResetRGB" class="btn-reset">초기화</button>
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header"><span style="color:#f87171;">Red (빨강 마스크)</span><span id="valR" class="val">0%</span></div>
+                    <input type="range" id="adjR" class="r-slider" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header"><span style="color:#4ade80;">Green (초록 마스크)</span><span id="valG" class="val">0%</span></div>
+                    <input type="range" id="adjG" class="g-slider" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header"><span style="color:#60a5fa;">Blue (파랑 마스크)</span><span id="valB" class="val">0%</span></div>
+                    <input type="range" id="adjB" class="b-slider" min="-100" max="100" value="0">
+                </div>
+            </div>
+
+            <!-- 적용 방식 -->
+            <div class="card">
+                <div class="section-title" style="margin:0;">어디에 적용할까요?</div>
+                <button id="tool-adj-pen" class="tool-btn btn-apply-pen">🖌️ 조정 펜으로 원하는 곳만 칠하기</button>
+                <button id="tool-adj-rect" class="tool-btn btn-apply-rect">🔲 사각형 영역 드래그해서 보정</button>
+                <button id="btnAdjGlobal" class="btn-apply-all">🌌 현재 레이어 전체 즉시 적용</button>
+            </div>
+        </div>
+
+        <!-- 탭 2: 비슷한 색상끼리 묶기 (팔레트 다이어트) -->
+        <div id="tab-quantize" class="tab-content">
+            <div class="card">
+                <div class="section-title" style="margin:0;">색상 통합 방식 선택</div>
+                <div class="radio-group">
+                    <label class="radio-card">
+                        <input type="radio" name="quantMode" value="cluster" checked>
+                        <div>
+                            <b>비슷한 색 클러스터링 (K-Means)</b>
+                            <div class="radio-desc">현재 그림에 쓰인 색들을 분석해 비슷한 색끼리 그룹을 짓고 대표 평균색으로 묶습니다. 그라데이션 정리에 최적입니다.</div>
+                        </div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="quantMode" value="grid">
+                        <div>
+                            <b>0~255 구간 균등 분할 (포스터화)</b>
+                            <div class="radio-desc">R, G, B 각각의 0~255 범위를 지정한 단계 수로 칼같이 나누어 레트로 팔레트처럼 만듭니다.</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span id="quantLabel">목표 색상 개수 (클러스터 수)</span>
+                        <span id="valQuant" class="val">8개</span>
+                    </div>
+                    <input type="range" id="quantCount" min="2" max="32" value="8">
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;" id="quantHint">
+                    현재 레이어에 있는 수많은 중간색을 가장 핵심적인 <b>8가지 색상</b>으로 압축합니다.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-title" style="margin:0;">통합 실행</div>
+                <button id="tool-quant-rect" class="tool-btn btn-apply-rect">🔲 사각형 영역만 색 묶기</button>
+                <button id="btnQuantGlobal" class="btn-apply-all">🧩 현재 레이어 전체 색상 묶기</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 기본 상태 관리 ---
+    let width = 16, height = 16;
+    let pixelSize = 20;
+    let currentTool = 'pen';
+    let layers = [];
+    let activeLayerIndex = 0;
+
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let isSelecting = false;
+    let strokeVisited = new Set();
+
+    let undoStack = [];
+    const maxUndoSteps = 30;
+    let recentColors = ['#F59E0B', '#EF4444', '#10B981', '#3B82F6', '#18181B', '#FFFFFF'];
+
+    const container = document.getElementById('canvas-container');
+    const layerListDiv = document.getElementById('layerList');
+    const paletteDiv = document.getElementById('palette');
+    const workspace = document.getElementById('workspace');
+    const selectionBox = document.getElementById('selection-box');
+    const statusBadge = document.getElementById('statusBadge');
+
+    // --- 탭 전환 로직 ---
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab).classList.add('active');
+        };
+    });
+
+    // --- 슬라이더 수치 바인딩 ---
+    const updateVal = (id, val, suffix) => document.getElementById(id).innerText = val + suffix;
+    document.getElementById('opacityPicker').oninput = (e) => updateVal('valOpacity', e.target.value, '');
+    document.getElementById('adjH').oninput = (e) => updateVal('valH', e.target.value, '도');
+    document.getElementById('adjS').oninput = (e) => updateVal('valS', e.target.value, '%');
+    document.getElementById('adjL').oninput = (e) => updateVal('valL', e.target.value, '%');
+    document.getElementById('adjR').oninput = (e) => updateVal('valR', e.target.value, '%');
+    document.getElementById('adjG').oninput = (e) => updateVal('valG', e.target.value, '%');
+    document.getElementById('adjB').oninput = (e) => updateVal('valB', e.target.value, '%');
+
+    // 슬라이더 초기화 버튼
+    document.getElementById('btnResetHSL').onclick = () => {
+        ['adjH', 'adjS', 'adjL'].forEach(id => document.getElementById(id).value = 0);
+        updateVal('valH', 0, '도'); updateVal('valS', 0, '%'); updateVal('valL', 0, '%');
+    };
+    document.getElementById('btnResetRGB').onclick = () => {
+        ['adjR', 'adjG', 'adjB'].forEach(id => document.getElementById(id).value = 0);
+        updateVal('valR', 0, '%'); updateVal('valG', 0, '%'); updateVal('valB', 0, '%');
+    };
+
+    // 색상 묶기 UI 동적 업데이트
+    function updateQuantUI() {
+        const mode = document.querySelector('input[name="quantMode"]:checked').value;
+        const val = document.getElementById('quantCount').value;
+        if (mode === 'cluster') {
+            document.getElementById('quantLabel').innerText = '목표 색상 개수 (클러스터 수)';
+            updateVal('valQuant', val, '개');
+            document.getElementById('quantHint').innerHTML = `현재 영역의 색들을 유사도 기준으로 묶어 핵심 <b>${val}가지 색상</b>으로 통일합니다.`;
+        } else {
+            document.getElementById('quantLabel').innerText = 'R·G·B 채널당 분할 단계';
+            updateVal('valQuant', val, '단계');
+            document.getElementById('quantHint').innerHTML = `0~255 구간을 채널마다 <b>${val}단계</b>로 균등 분할합니다. (최대 ${Math.pow(val, 3)}색 조합)`;
+        }
+    }
+    document.getElementById('quantCount').oninput = updateQuantUI;
+    document.querySelectorAll('input[name="quantMode"]').forEach(r => r.onchange = updateQuantUI);
+
+    // --- 캔버스 초기화 및 줌 ---
+    function initCanvas() {
+        container.querySelectorAll('canvas').forEach(c => c.remove());
+        layers = []; undoStack = [];
+        updateDisplayScale();
+        addLayer();
+        renderPalette();
+    }
+
+    function updateDisplayScale() {
+        if (pixelSize < 1) pixelSize = 1;
+        if (pixelSize > 150) pixelSize = 150;
+        
+        container.style.width = (width * pixelSize) + 'px';
+        container.style.height = (height * pixelSize) + 'px';
+        
+        layers.forEach(l => {
+            l.canvas.style.width = container.style.width;
+            l.canvas.style.height = container.style.height;
+        });
+        statusBadge.innerText = `${width} × ${height} px · 배율 ${pixelSize}x · 마우스 휠로 줌`;
+    }
+
+    workspace.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        pixelSize += (e.deltaY < 0) ? (pixelSize >= 10 ? 2 : 1) : -(pixelSize > 10 ? 2 : 1);
+        updateDisplayScale();
+    }, { passive: false });
+
+    document.getElementById('btnZoomIn').onclick = () => { pixelSize += (pixelSize >= 10 ? 2 : 1); updateDisplayScale(); };
+    document.getElementById('btnZoomOut').onclick = () => { pixelSize -= (pixelSize > 10 ? 2 : 1); updateDisplayScale(); };
+
+    // --- 레이어 관리 ---
+    function addLayer() {
+        saveState();
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        container.appendChild(canvas);
+        layers.push({ canvas, ctx, id: Date.now() });
+        activeLayerIndex = layers.length - 1;
+        
+        setupCanvasEvents(canvas);
+        renderLayerList();
+    }
+
+    function renderLayerList() {
+        layerListDiv.innerHTML = '';
+        [...layers].reverse().forEach((layer, i) => {
+            const actualIndex = layers.length - 1 - i;
+            const div = document.createElement('div');
+            div.className = `layer-item ${activeLayerIndex === actualIndex ? 'active' : ''}`;
+            div.innerHTML = `<span>레이어 ${actualIndex + 1}</span><span style="font-size:10px; color:var(--text-muted)">${activeLayerIndex === actualIndex ? '작업중' : ''}</span>`;
+            div.onclick = () => { activeLayerIndex = actualIndex; renderLayerList(); };
+            layerListDiv.appendChild(div);
+        });
+    }
+
+    // --- 실행 취소 (Undo) ---
+    function saveState() {
+        if (layers.length === 0) return;
+        const ctx = layers[activeLayerIndex].ctx;
+        undoStack.push({ layerIndex: activeLayerIndex, data: ctx.getImageData(0, 0, width, height) });
+        if (undoStack.length > maxUndoSteps) undoStack.shift();
+    }
+
+    function undo() {
+        if (undoStack.length === 0) return;
+        const state = undoStack.pop();
+        if (layers[state.layerIndex]) layers[state.layerIndex].ctx.putImageData(state.data, 0, 0);
+    }
+
+    document.getElementById('btnUndo').onclick = undo;
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            undo();
+        }
+    });
+
+    // --- 색상 & 팔레트 ---
+    function getCurrentColor() {
+        if (currentTool === 'eraser') return [0, 0, 0, 0];
+        const hex = document.getElementById('colorPicker').value;
+        const alpha = parseInt(document.getElementById('opacityPicker').value);
+        return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16), alpha];
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+    }
+
+    function addToPalette(colorData) {
+        if (colorData[3] === 0) return;
+        const rgbaStr = `rgba(${colorData[0]},${colorData[1]},${colorData[2]},${colorData[3]/255})`;
+        recentColors = recentColors.filter(c => c !== rgbaStr && c !== rgbToHex(colorData[0], colorData[1], colorData[2]));
+        recentColors.unshift(rgbaStr);
+        if (recentColors.length > 16) recentColors.pop();
+        renderPalette();
+    }
+
+    function renderPalette() {
+        paletteDiv.innerHTML = '';
+        recentColors.forEach(col => {
+            const chip = document.createElement('div');
+            chip.className = 'color-chip';
+            chip.style.backgroundColor = col;
+            chip.onclick = () => {
+                if (col.startsWith('#')) {
+                    document.getElementById('colorPicker').value = col;
+                    document.getElementById('opacityPicker').value = 255;
+                    updateVal('valOpacity', 255, '');
+                } else {
+                    const parts = col.match(/[\d.]+/g);
+                    document.getElementById('colorPicker').value = rgbToHex(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
+                    const a = Math.round(parseFloat(parts[3]) * 255);
+                    document.getElementById('opacityPicker').value = a;
+                    updateVal('valOpacity', a, '');
+                }
+            };
+            paletteDiv.appendChild(chip);
+        });
+    }
+
+    // --- 마우스 이벤트 및 도구 실행 ---
+    function setupCanvasEvents(canvas) {
+        canvas.addEventListener('mousedown', e => {
+            if (currentTool !== 'picker') saveState();
+            const pos = getMousePos(e);
+            startX = pos.x; startY = pos.y;
+
+            if (currentTool === 'adj-rect' || currentTool === 'quant-rect') {
+                isSelecting = true;
+                selectionBox.style.display = 'block';
+                updateSelectionBox(startX, startY, startX, startY);
+            } else {
+                isDrawing = true;
+                strokeVisited.clear();
+                useTool(pos.x, pos.y);
+            }
+        });
+
+        window.addEventListener('mouseup', e => {
+            if (isSelecting) {
+                isSelecting = false;
+                selectionBox.style.display = 'none';
+                const pos = getMousePos(e);
+                if (currentTool === 'adj-rect') applyAdjustmentToRect(startX, startY, pos.x, pos.y);
+                if (currentTool === 'quant-rect') applyQuantizeToRect(startX, startY, pos.x, pos.y);
+            } else if (isDrawing && !['picker', 'eraser', 'adj-pen'].includes(currentTool)) {
+                addToPalette(getCurrentColor());
+            }
+            isDrawing = false;
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            const pos = getMousePos(e);
+            if (isSelecting) {
+                updateSelectionBox(startX, startY, pos.x, pos.y);
+            } else if (isDrawing && ['pen', 'eraser', 'adj-pen'].includes(currentTool)) {
+                useTool(pos.x, pos.y);
+            }
+        });
+    }
+
+    function getMousePos(e) {
+        const rect = container.getBoundingClientRect();
+        return {
+            x: Math.floor((e.clientX - rect.left) / pixelSize),
+            y: Math.floor((e.clientY - rect.top) / pixelSize)
+        };
+    }
+
+    function updateSelectionBox(x1, y1, x2, y2) {
+        const minX = Math.max(0, Math.min(x1, x2));
+        const minY = Math.max(0, Math.min(y1, y2));
+        const maxX = Math.min(width - 1, Math.max(x1, x2));
+        const maxY = Math.min(height - 1, Math.max(y1, y2));
+
+        selectionBox.style.left = (minX * pixelSize) + 'px';
+        selectionBox.style.top = (minY * pixelSize) + 'px';
+        selectionBox.style.width = ((maxX - minX + 1) * pixelSize) + 'px';
+        selectionBox.style.height = ((maxY - minY + 1) * pixelSize) + 'px';
+    }
+
+    function useTool(x, y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        const ctx = layers[activeLayerIndex].ctx;
+        const color = getCurrentColor();
+        const bSize = parseInt(document.getElementById('brushSize').value) || 1;
+
+        if (currentTool === 'picker') {
+            const data = ctx.getImageData(x, y, 1, 1).data;
+            if (data[3] > 0) {
+                document.getElementById('colorPicker').value = rgbToHex(data[0], data[1], data[2]);
+                document.getElementById('opacityPicker').value = data[3];
+                updateVal('valOpacity', data[3], '');
+            }
+        } else if (currentTool === 'pen' || currentTool === 'eraser') {
+            if (currentTool === 'eraser') {
+                ctx.clearRect(x, y, bSize, bSize);
+            } else {
+                ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`;
+                ctx.fillRect(x, y, bSize, bSize);
+            }
+        } else if (currentTool === 'adj-pen') {
+            applyAdjustmentToPenBrush(ctx, x, y, bSize);
+        } else if (currentTool === 'fill') {
+            floodFill(ctx, x, y, color);
+        } else if (currentTool === 'global-fill') {
+            globalFill(ctx, x, y, color);
+        } else if (currentTool === 'circle') {
+            drawCircle(ctx, startX, startY, Math.max(Math.abs(x - startX), Math.abs(y - startY)), color, bSize);
+        }
+    }
+
+    function drawCircle(ctx, xc, yc, r, color, bSize) {
+        for (let y = -r; y <= r; y++) {
+            for (let x = -r; x <= r; x++) {
+                if (x * x + y * y <= r * r && x * x + y * y > (r - 1) * (r - 1)) {
+                    ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`;
+                    ctx.fillRect(xc + x, yc + y, bSize, bSize);
+                }
+            }
+        }
+    }
+
+    function floodFill(ctx, startX, startY, fillColor) {
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+        const targetColor = getPixelColor(data, startX, startY);
+        if (colorMatch(targetColor, fillColor)) return;
+
+        const pixelsToCheck = [{ x: startX, y: startY }];
+        while (pixelsToCheck.length > 0) {
+            const { x, y } = pixelsToCheck.pop();
+            const idx = (y * width + x) * 4;
+            if (x < 0 || y < 0 || x >= width || y >= height) continue;
+            if (!colorMatch(getPixelColor(data, x, y), targetColor)) continue;
+
+            data[idx] = fillColor[0]; data[idx + 1] = fillColor[1]; data[idx + 2] = fillColor[2]; data[idx + 3] = fillColor[3];
+            pixelsToCheck.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function globalFill(ctx, startX, startY, fillColor) {
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+        const targetColor = getPixelColor(data, startX, startY);
+        for (let i = 0; i < data.length; i += 4) {
+            if (colorMatch([data[i], data[i + 1], data[i + 2], data[i + 3]], targetColor)) {
+                data[i] = fillColor[0]; data[i + 1] = fillColor[1]; data[i + 2] = fillColor[2]; data[i + 3] = fillColor[3];
+            }
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function getPixelColor(data, x, y) {
+        const idx = (y * width + x) * 4;
+        return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+    }
+    function colorMatch(c1, c2) { return c1[0] === c2[0] && c1[1] === c2[1] && c1[2] === c2[2] && c1[3] === c2[3]; }
+
+    // --- HSL <-> RGB 변환 ---
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        let max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) h = s = 0;
+        else {
+            let d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [h, s, l];
+    }
+
+    function hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) r = g = b = l;
+        else {
+            let hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1; if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            let p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    // ⭐ 통합 보정 엔진: HSL 보정 + RGB 채널 마스킹 동시 지원
+    function applyAdjustToPixelData(data, idx, params, mode) {
+        if (data[idx + 3] === 0) return;
+
+        let r = data[idx];
+        let g = data[idx + 1];
+        let b = data[idx + 2];
+
+        // 1. HSL 보정이 설정된 경우 먼저 적용
+        if (params.dH !== 0 || params.dS !== 0 || params.dL !== 0) {
+            let hsl = rgbToHsl(r, g, b);
+            hsl[0] = (hsl[0] + (params.dH / 360)) % 1.0;
+            if (hsl[0] < 0) hsl[0] += 1.0;
+
+            let sFactor = Math.abs(params.dS) / 100;
+            let lFactor = Math.abs(params.dL) / 100;
+
+            if (mode === 'curve') {
+                if (params.dS > 0) hsl[1] += (1.0 - hsl[1]) * sFactor;
+                else if (params.dS < 0) hsl[1] -= hsl[1] * sFactor;
+
+                if (params.dL > 0) hsl[2] += (1.0 - hsl[2]) * lFactor;
+                else if (params.dL < 0) hsl[2] -= hsl[2] * lFactor;
+            } else {
+                hsl[1] = Math.max(0, Math.min(1, hsl[1] + (params.dS / 100)));
+                hsl[2] = Math.max(0, Math.min(1, hsl[2] + (params.dL / 100)));
+            }
+            [r, g, b] = hslToRgb(hsl[0], hsl[1], hsl[2]);
+        }
+
+        // 2. RGB 채널 마스킹 적용 (0~255 기준 부드러운 마스크 또는 선형 합산)
+        const applyChannel = (val, delta) => {
+            if (delta === 0) return val;
+            if (mode === 'curve') {
+                // 반투명 셀로판지 마스크 원리: 255에 가까울수록 완만하게 접근
+                const factor = Math.abs(delta) / 100;
+                if (delta > 0) return Math.round(val + (255 - val) * factor);
+                else return Math.round(val - val * factor);
+            } else {
+                return Math.max(0, Math.min(255, Math.round(val + (delta / 100) * 255)));
+            }
+        };
+
+        data[idx] = applyChannel(r, params.dR);
+        data[idx + 1] = applyChannel(g, params.dG);
+        data[idx + 2] = applyChannel(b, params.dB);
+    }
+
+    function getAdjustParams() {
+        return {
+            dH: parseInt(document.getElementById('adjH').value),
+            dS: parseInt(document.getElementById('adjS').value),
+            dL: parseInt(document.getElementById('adjL').value),
+            dR: parseInt(document.getElementById('adjR').value),
+            dG: parseInt(document.getElementById('adjG').value),
+            dB: parseInt(document.getElementById('adjB').value)
+        };
+    }
+
+    function applyAdjustmentToPenBrush(ctx, x, y, bSize) {
+        const params = getAdjustParams();
+        const mode = document.querySelector('input[name="adjMode"]:checked').value;
+
+        let imgData = ctx.getImageData(x, y, bSize, bSize);
+        let data = imgData.data;
+        let isModified = false;
+
+        for (let i = 0; i < bSize; i++) {
+            for (let j = 0; j < bSize; j++) {
+                let px = x + i, py = y + j;
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    let key = px + "," + py;
+                    if (!strokeVisited.has(key)) {
+                        strokeVisited.add(key);
+                        let idx = (j * bSize + i) * 4;
+                        applyAdjustToPixelData(data, idx, params, mode);
+                        isModified = true;
+                    }
+                }
+            }
+        }
+        if (isModified) ctx.putImageData(imgData, x, y);
+    }
+
+    function applyAdjustmentToRect(x1, y1, x2, y2) {
+        const minX = Math.max(0, Math.min(x1, x2));
+        const minY = Math.max(0, Math.min(y1, y2));
+        const maxX = Math.min(width - 1, Math.max(x1, x2));
+        const maxY = Math.min(height - 1, Math.max(y1, y2));
+
+        const params = getAdjustParams();
+        const mode = document.querySelector('input[name="adjMode"]:checked').value;
+
+        const ctx = layers[activeLayerIndex].ctx;
+        let w = maxX - minX + 1;
+        let h = maxY - minY + 1;
+        let imgData = ctx.getImageData(minX, minY, w, h);
+        let data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            applyAdjustToPixelData(data, i, params, mode);
+        }
+        ctx.putImageData(imgData, minX, minY);
+    }
+
+    document.getElementById('btnAdjGlobal').onclick = () => {
+        saveState();
+        applyAdjustmentToRect(0, 0, width - 1, height - 1);
+    };
+
+    // ⭐ 신규 기능: 비슷한 색상끼리 묶기 (클러스터링 & 0~255 균등 분할)
+    function applyQuantizeToRect(x1, y1, x2, y2) {
+        const minX = Math.max(0, Math.min(x1, x2));
+        const minY = Math.max(0, Math.min(y1, y2));
+        const maxX = Math.min(width - 1, Math.max(x1, x2));
+        const maxY = Math.min(height - 1, Math.max(y1, y2));
+
+        const mode = document.querySelector('input[name="quantMode"]:checked').value;
+        const k = parseInt(document.getElementById('quantCount').value);
+
+        const ctx = layers[activeLayerIndex].ctx;
+        const w = maxX - minX + 1;
+        const h = maxY - minY + 1;
+        const imgData = ctx.getImageData(minX, minY, w, h);
+        const data = imgData.data;
+
+        if (mode === 'grid') {
+            // 방식 2: 0~255 구간 균등 분할 (포스터화)
+            const step = 255 / (k - 1);
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] === 0) continue;
+                data[i] = Math.round(Math.round(data[i] / step) * step);
+                data[i + 1] = Math.round(Math.round(data[i + 1] / step) * step);
+                data[i + 2] = Math.round(Math.round(data[i + 2] / step) * step);
+            }
+        } else {
+            // 방식 1: 현재 사용된 색상들의 K-Means 클러스터링
+            const pixels = [];
+            const uniqueMap = new Map();
+
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] === 0) continue;
+                const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, { r: data[i], g: data[i + 1], b: data[i + 2], count: 1 });
+                } else {
+                    uniqueMap.get(key).count++;
+                }
+            }
+
+            const uniqueColors = Array.from(uniqueMap.values());
+            if (uniqueColors.length <= k) return; // 이미 목표 개수 이하면 변환 불필요
+
+            // 초기 중심점(Centroid) 선택: 가장 많이 쓰인 색 + 거리가 먼 색 우선 추출 (K-Means++)
+            uniqueColors.sort((a, b) => b.count - a.count);
+            let centroids = [{ r: uniqueColors[0].r, g: uniqueColors[0].g, b: uniqueColors[0].b }];
+
+            while (centroids.length < k) {
+                let bestColor = null;
+                let maxDist = -1;
+                for (const c of uniqueColors) {
+                    let minDistToCentroid = Infinity;
+                    for (const cent of centroids) {
+                        const d = (c.r - cent.r) ** 2 + (c.g - cent.g) ** 2 + (c.b - cent.b) ** 2;
+                        if (d < minDistToCentroid) minDistToCentroid = d;
+                    }
+                    // 빈도 가중치를 살짝 더해 노이즈 색상 방지
+                    const score = minDistToCentroid * Math.sqrt(c.count);
+                    if (score > maxDist) {
+                        maxDist = score;
+                        bestColor = c;
+                    }
+                }
+                if (bestColor) centroids.push({ r: bestColor.r, g: bestColor.g, b: bestColor.b });
+                else break;
+            }
+
+            // K-Means 반복 수렴 (최대 12회)
+            for (let iter = 0; iter < 12; iter++) {
+                const sums = Array.from({ length: centroids.length }, () => ({ r: 0, g: 0, b: 0, weight: 0 }));
+
+                for (const c of uniqueColors) {
+                    let bestIdx = 0;
+                    let minDist = Infinity;
+                    for (let j = 0; j < centroids.length; j++) {
+                        const d = (c.r - centroids[j].r) ** 2 + (c.g - centroids[j].g) ** 2 + (c.b - centroids[j].b) ** 2;
+                        if (d < minDist) { minDist = d; bestIdx = j; }
+                    }
+                    sums[bestIdx].r += c.r * c.count;
+                    sums[bestIdx].g += c.g * c.count;
+                    sums[bestIdx].b += c.b * c.count;
+                    sums[bestIdx].weight += c.count;
+                }
+
+                let moved = false;
+                for (let j = 0; j < centroids.length; j++) {
+                    if (sums[j].weight > 0) {
+                        const nr = Math.round(sums[j].r / sums[j].weight);
+                        const ng = Math.round(sums[j].g / sums[j].weight);
+                        const nb = Math.round(sums[j].b / sums[j].weight);
+                        if (nr !== centroids[j].r || ng !== centroids[j].g || nb !== centroids[j].b) {
+                            centroids[j] = { r: nr, g: ng, b: nb };
+                            moved = true;
+                        }
+                    }
+                }
+                if (!moved) break;
+            }
+
+            // 각 픽셀을 가장 가까운 클러스터 대표색으로 치환
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] === 0) continue;
+                let bestIdx = 0;
+                let minDist = Infinity;
+                for (let j = 0; j < centroids.length; j++) {
+                    const d = (data[i] - centroids[j].r) ** 2 + (data[i + 1] - centroids[j].g) ** 2 + (data[i + 2] - centroids[j].b) ** 2;
+                    if (d < minDist) { minDist = d; bestIdx = j; }
+                }
+                data[i] = centroids[bestIdx].r;
+                data[i + 1] = centroids[bestIdx].g;
+                data[i + 2] = centroids[bestIdx].b;
+            }
+        }
+
+        ctx.putImageData(imgData, minX, minY);
+    }
+
+    document.getElementById('btnQuantGlobal').onclick = () => {
+        saveState();
+        applyQuantizeToRect(0, 0, width - 1, height - 1);
+    };
+
+    // --- UI 버튼 이벤트 바인딩 ---
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            const target = e.currentTarget;
+            target.classList.add('active');
+            currentTool = target.id.replace('tool-', '');
+        };
+    });
+
+    document.getElementById('btnResize').onclick = () => {
+        width = parseInt(document.getElementById('canvasW').value);
+        height = parseInt(document.getElementById('canvasH').value);
+        if (width <= 64 && height <= 64) pixelSize = 20;
+        else if (width <= 128) pixelSize = 5;
+        else pixelSize = 1;
+        initCanvas();
+    };
+
+    document.getElementById('btnAddLayer').onclick = addLayer;
+
+    document.getElementById('btnExport').onclick = () => {
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = width; exportCanvas.height = height;
+        const eCtx = exportCanvas.getContext('2d');
+        layers.forEach(l => { eCtx.drawImage(l.canvas, 0, 0); });
+
+        const link = document.createElement('a');
+        link.download = 'pixel_art_craft.png';
+        link.href = exportCanvas.toDataURL('image/png');
+        link.click();
+    };
+
+    document.getElementById('btnImport').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+            width = img.width; height = img.height;
+            document.getElementById('canvasW').value = width;
+            document.getElementById('canvasH').value = height;
+            if (width <= 64 && height <= 64) pixelSize = 20;
+            else if (width <= 256) pixelSize = 3;
+            else pixelSize = 1;
+            initCanvas();
+            layers[0].ctx.drawImage(img, 0, 0, width, height);
+            saveState();
+        };
+        img.src = URL.createObjectURL(file);
+    };
+
+    initCanvas();
+</script>
+</body>
+</html>
